@@ -1,0 +1,36 @@
+pyproject configuration, with an async dbapi.
+
+## Dev Notes
+
+**Alembic initialization**
+
+Visit: https://alembic.sqlalchemy.org/en/latest/tutorial.html
+
+```bash
+# available templates
+alembic list_templates
+```
+```bash
+# initialize with template
+alembic init -t async <dir-name>
+alembic init -t async alembic
+```
+
+**Migrations**
+```bash
+# generate a migration.
+# equivalen to django `manage.py makemigrations`
+alembic revision --autogenerate -m "migration message"
+```
+
+```bash
+# migrate
+# equivalent to django `manage.py migrate`
+alembic upgrade head
+```
+
+**Verify**
+```bash
+alembic current
+alembic history
+```

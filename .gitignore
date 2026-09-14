@@ -3,6 +3,9 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# Rememzo local db
+rememzo.db
+
 # C extensions
 *.so
 
@@ -25,6 +28,12 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
+# Agent settings
+.agents
+.codex
+.claude
+.opencode
 
 # PyInstaller
 #   Usually these files are written by a python script from a template
