@@ -4,6 +4,7 @@ from uuid import uuid4
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
@@ -51,9 +52,6 @@ class Project(Base):
     id = Column(Uuid, primary_key=True, default=uuid4)
     user_id = Column(ForeignKey("users.id"), nullable=False, index=True)  # Owner
     name = Column(String, nullable=False)
-    slug = Column(
-        String, unique=True, nullable=False
-    )  # problematic, many user can have project customer-support-agent, if we want to add unique slug then id already solve this
     description = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=utc_now)
@@ -69,7 +67,7 @@ class Membership(Base):
         GUEST = "guest"
 
     id = Column(Uuid, primary_key=True, default=uuid4)
-    project_id = Column(ForeignKey("projects.id"), nullable=False, index=True)
+    project_id = Column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id = Column(ForeignKey("users.id"), nullable=False, index=True)
     role = Column(String, default=RoleChoices.MEMBER.value)
     is_active = Column(Boolean, default=True)
@@ -88,7 +86,7 @@ class Memory(Base):
 
     id = Column(Uuid, primary_key=True, default=uuid4)
     user_id = Column(ForeignKey("users.id"), nullable=True, index=True)
-    project_id = Column(ForeignKey("projects.id"), nullable=True, index=True)
+    project_id = Column(ForeignKey("projects.id", ondelete="CASCADE"), nullable=True, index=True)
     content = Column(Text, nullable=False)
     # vector = ? guess field. requires future discussion
     scope = Column(String, default=ScopeChoices.USER.value)
@@ -97,3 +95,11 @@ class Memory(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
     expired_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint(
+            "(scope = 'user' AND project_id IS NULL) OR "
+            "(scope = 'project' AND project_id IS NOT NULL)",
+            name="ck_memories_scope_project",
+        ),
+    )
