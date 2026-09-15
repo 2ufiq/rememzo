@@ -2,40 +2,10 @@
 # mcp.py only communicate with client. the CRUD operation with db happens here.
 
 
-import hashlib
-from datetime import UTC
 from uuid import UUID
 
-from sqlalchemy import select
-
 from rememzo.db import SessionFactory
-from rememzo.models import APIKey, Memory
-from rememzo.utils import utc_now
-
-
-async def is_apikey_valid(presented_key: str):
-    presented_hash = hashlib.sha256(presented_key.encode()).hexdigest()
-    async with SessionFactory() as session:
-        api_key = await session.scalar(
-            select(APIKey).where(APIKey.key_hash == presented_hash)
-        )
-        if not api_key or not api_key.is_active:
-            return False
-        if api_key.expired_at:
-            expired_at = api_key.expired_at
-            if expired_at.tzinfo is None:
-                expired_at = expired_at.replace(tzinfo=UTC)
-            if expired_at <= utc_now():
-                return False
-        return True
-
-
-async def get_user_id_from_apikey(presented_key: str) -> UUID | None:
-    presented_hash = hashlib.sha256(presented_key.encode()).hexdigest()
-    async with SessionFactory() as session:
-        return await session.scalar(
-            select(APIKey.user_id).where(APIKey.key_hash == presented_hash)
-        )
+from rememzo.models import Memory
 
 
 def serialize_memory(memory: Memory) -> dict:
