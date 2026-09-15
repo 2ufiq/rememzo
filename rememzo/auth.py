@@ -8,7 +8,7 @@ from fastmcp.server.dependencies import get_access_token
 from sqlalchemy import select
 
 from rememzo.db import SessionFactory
-from rememzo.models import APIKey
+from rememzo.models import APIKey, User
 from rememzo.utils import utc_now
 
 
@@ -29,25 +29,50 @@ class RememzoTokenVerifier(TokenVerifier):
         )
 
 
-async def is_apikey_valid(presented_key: str):
-    presented_hash = hashlib.sha256(presented_key.encode()).hexdigest()
+def hash_apikey(presented_key: str) -> str:
+    return hashlib.sha256(presented_key.encode()).hexdigest()
+
+
+def is_expired(expired_at) -> bool:
+    if expired_at is None:
+        return False
+    if expired_at.tzinfo is None:
+        expired_at = expired_at.replace(tzinfo=UTC)
+    return expired_at <= utc_now()
+
+
+async def is_apikey_valid(presented_key: str) -> bool:
+    presented_hash = hash_apikey(presented_key)
     async with SessionFactory() as session:
-        api_key = await session.scalar(select(APIKey).where(APIKey.key_hash == presented_hash))
-        if not api_key or not api_key.is_active:
+        api_key = await session.scalar(
+            select(APIKey)
+            .join(User, User.id == APIKey.user_id)
+            .where(
+                APIKey.key_hash == presented_hash,
+                APIKey.is_active.is_(True),
+                User.is_active.is_(True),
+            )
+        )
+        if api_key is None:
             return False
-        if api_key.expired_at:
-            expired_at = api_key.expired_at
-            if expired_at.tzinfo is None:
-                expired_at = expired_at.replace(tzinfo=UTC)
-            if expired_at <= utc_now():
-                return False
-        return True
+        return not is_expired(api_key.expired_at)
 
 
 async def get_user_id_from_apikey(presented_key: str) -> UUID | None:
-    presented_hash = hashlib.sha256(presented_key.encode()).hexdigest()
+    presented_hash = hash_apikey(presented_key)
     async with SessionFactory() as session:
-        return await session.scalar(select(APIKey.user_id).where(APIKey.key_hash == presented_hash))
+        api_key = await session.scalar(
+            select(APIKey)
+            .join(User, User.id == APIKey.user_id)
+            .where(
+                APIKey.key_hash == presented_hash,
+                APIKey.is_active.is_(True),
+                User.is_active.is_(True),
+            )
+        )
+        if api_key is None or is_expired(api_key.expired_at):
+            return None
+        return api_key.user_id
 
 
 def get_authenticated_user_id() -> UUID:

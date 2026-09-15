@@ -1,14 +1,17 @@
-from typing import Any, Literal
+from collections.abc import Awaitable, Callable
+from typing import Annotated, Any, Literal, TypeVar
 from uuid import UUID
 
-from fastmcp import Context, FastMCP
+from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
+from pydantic import Field
 
 from rememzo import services
 from rememzo.auth import RememzoTokenVerifier, get_authenticated_user_id
 
 MemoryScope = Literal["user", "project"]
-
+Limit = Annotated[int, Field(ge=1, le=100)]
+ResultT = TypeVar("ResultT")
 
 mcp = FastMCP(
     name="Rememzo",
@@ -25,6 +28,13 @@ def validate_project_scope(scope: MemoryScope, project_id: UUID | None) -> None:
         raise ToolError("project_id is only valid for project-scoped memory")
 
 
+async def call_service(operation: Callable[..., Awaitable[ResultT]], *args, **kwargs) -> ResultT:
+    try:
+        return await operation(*args, **kwargs)
+    except ValueError as error:
+        raise ToolError(str(error)) from error
+
+
 @mcp.tool
 async def add_memory(
     content: str,
@@ -32,21 +42,25 @@ async def add_memory(
     project_id: UUID | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> dict:
-    """Add memory"""
+    """Add a memory owned by the authenticated user."""
     validate_project_scope(scope, project_id)
-    return await services.add_memory(
-        user_id=get_authenticated_user_id(),
-        content=content,
-        scope=scope,
-        project_id=project_id,
-        extra=metadata,
+    return await call_service(
+        services.add_memory,
+        get_authenticated_user_id(),
+        content,
+        scope,
+        project_id,
+        metadata,
     )
 
 
 @mcp.tool
 async def fetch_memory(memory_id: UUID) -> dict:
-    """Fetch one specific memory by ID"""
-    return await services.fetch_memory(memory_id)
+    """Fetch one available memory by ID."""
+    memory = await call_service(services.fetch_memory, get_authenticated_user_id(), memory_id)
+    if memory is None:
+        raise ToolError("Memory not found")
+    return memory
 
 
 @mcp.tool
@@ -54,34 +68,28 @@ async def search_memories(
     query: str,
     scope: MemoryScope,
     project_id: UUID | None = None,
-    limit: int = 10,
+    limit: Limit = 10,
 ) -> list[dict]:
-    """Search N last memories"""
+    """Search memories after the separate search subsystem is installed."""
     validate_project_scope(scope, project_id)
-    memories = [
-        {
-            "content": "sample memory",
-            "memory_id": "sample memory id",
-        }
-    ]
-    return memories
+    raise ToolError("Search is not available in this build")
 
 
 @mcp.tool
 async def list_memories(
     scope: MemoryScope,
     project_id: UUID | None = None,
-    limit: int = 10,
+    limit: Limit = 10,
 ) -> list[dict]:
-    """List N last memories"""
+    """List available memories newest first."""
     validate_project_scope(scope, project_id)
-    memories = [
-        {
-            "content": "sample memory",
-            "memory_id": "sample memory id",
-        }
-    ]
-    return memories
+    return await call_service(
+        services.list_memories,
+        get_authenticated_user_id(),
+        scope,
+        project_id,
+        limit,
+    )
 
 
 @mcp.tool
@@ -91,69 +99,87 @@ async def update_memory(
     scope: MemoryScope | None = None,
     project_id: UUID | None = None,
     metadata: dict[str, Any] | None = None,
-) -> str:
-    """Update existing memory"""
-    if all(value is None for value in (content, scope, project_id, metadata)):
-        raise ToolError("At least one field must be provided for update")
-
-    if scope is not None:
-        validate_project_scope(scope, project_id)
-
-    return f"updated memory {memory_id}"
+) -> dict:
+    """Update one available owned memory."""
+    memory = await call_service(
+        services.update_memory,
+        get_authenticated_user_id(),
+        memory_id,
+        content,
+        scope,
+        project_id,
+        metadata,
+    )
+    if memory is None:
+        raise ToolError("Memory not found")
+    return memory
 
 
 @mcp.tool
-async def forget_memories(memory_ids: list[UUID]) -> str:
-    """Forget one specific existing memory"""
-    return f"forgot memories {memory_ids}"
+async def forget_memories(memory_ids: list[UUID]) -> dict:
+    """Soft-delete owned memories."""
+    return await call_service(services.forget_memories, get_authenticated_user_id(), memory_ids)
 
 
 @mcp.tool
-async def delete_memories(memory_ids: list[UUID], ctx: Context) -> str:
-    """Delete existing memories"""
-    await ctx.info(f"deleting memories {memory_ids}")
-    return f"deleted memories {memory_ids}"
+async def delete_memories(memory_ids: list[UUID]) -> dict:
+    """Permanently delete owned memories."""
+    return await call_service(services.delete_memories, get_authenticated_user_id(), memory_ids)
 
 
-# TODO:
-# create/retrieve/update/delete project
-# list projects
-#
+@mcp.tool
+async def create_project(name: str, description: str | None = None) -> dict:
+    """Create a project owned by the authenticated user."""
+    return await call_service(
+        services.create_project,
+        get_authenticated_user_id(),
+        name,
+        description,
+    )
 
 
-@mcp.resource("data://config")
-def get_config() -> dict:
-    return {"theme": "dark", "version": "1.0"}
+@mcp.tool
+async def fetch_project(project_id: UUID) -> dict:
+    """Fetch one active owned project."""
+    project = await call_service(services.fetch_project, get_authenticated_user_id(), project_id)
+    if project is None:
+        raise ToolError("Project not found")
+    return project
 
 
-@mcp.prompt
-def analyze_datapoints(datapoints: list) -> str:
-    datapoints = sorted(datapoints)
-    return f"Please analyze these datapoints: {datapoints}"
+@mcp.tool
+async def list_projects(limit: Limit = 10) -> list[dict]:
+    """List active owned projects newest first."""
+    return await call_service(services.list_projects, get_authenticated_user_id(), limit)
+
+
+@mcp.tool
+async def update_project(
+    project_id: UUID,
+    name: str | None = None,
+    description: str | None = None,
+) -> dict:
+    """Update one active owned project."""
+    project = await call_service(
+        services.update_project,
+        get_authenticated_user_id(),
+        project_id,
+        name,
+        description,
+    )
+    if project is None:
+        raise ToolError("Project not found")
+    return project
+
+
+@mcp.tool
+async def delete_project(project_id: UUID) -> dict:
+    """Permanently delete one active owned project and its child rows."""
+    deleted = await call_service(services.delete_project, get_authenticated_user_id(), project_id)
+    if not deleted:
+        raise ToolError("Project not found")
+    return {"project_id": str(project_id), "deleted": True}
 
 
 if __name__ == "__main__":
-    # run as stdio
-    # mcp.run()
-
-    # add to claude desktop ` ~/.config/Claude/claude_desktop_config.json`
-    # {
-    # "mcpServers": {
-    #     "rememzo": {
-    #     "command": "uv",
-    #     "args": ["run", "--directory", "<path-to-rememzo>", "main.py"]
-    #     }
-    # }
-    # }
-
-    # run http
     mcp.run(transport="http", host="127.0.0.1", port=8000)
-    #
-    # add to claude desktop ` ~/.config/Claude/claude_desktop_config.json`
-    # {
-    # "mcpServers": {
-    #     "rememzo": {
-    #     "url": "http://localhost:PORT/mcp"
-    #     }
-    # }
-    # }
