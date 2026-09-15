@@ -1,4 +1,3 @@
-from datetime import UTC, datetime
 from enum import Enum
 from uuid import uuid4
 
@@ -10,10 +9,10 @@ from sqlalchemy import (
     ForeignKey,
     String,
     Text,
+    UniqueConstraint,
     Uuid,
 )
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import UniqueConstraint
 
 from rememzo.utils import utc_now
 
@@ -50,9 +49,11 @@ class Project(Base):
     __tablename__ = "projects"
 
     id = Column(Uuid, primary_key=True, default=uuid4)
-    user_id = Column(ForeignKey("users.id"), nullable=False, index=True) # Owner
+    user_id = Column(ForeignKey("users.id"), nullable=False, index=True)  # Owner
     name = Column(String, nullable=False)
-    slug = Column(String, unique=True, nullable=False) # problematic, many user can have project customer-support-agent, if we want to add unique slug then id already solve this
+    slug = Column(
+        String, unique=True, nullable=False
+    )  # problematic, many user can have project customer-support-agent, if we want to add unique slug then id already solve this
     description = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=utc_now)
@@ -66,7 +67,7 @@ class Membership(Base):
         ADMIN = "admin"
         MEMBER = "member"
         GUEST = "guest"
-    
+
     id = Column(Uuid, primary_key=True, default=uuid4)
     project_id = Column(ForeignKey("projects.id"), nullable=False, index=True)
     user_id = Column(ForeignKey("users.id"), nullable=False, index=True)
@@ -74,8 +75,8 @@ class Membership(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=utc_now)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
-    
-    __table_args__ = (UniqueConstraint('project_id', 'user_id', name='project_members')),
+
+    __table_args__ = ((UniqueConstraint("project_id", "user_id", name="project_members")),)
 
 
 class Memory(Base):

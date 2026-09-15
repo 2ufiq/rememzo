@@ -1,5 +1,6 @@
-from uuid import UUID
 import hashlib
+from datetime import UTC
+from uuid import UUID
 
 from fastmcp.exceptions import ToolError
 from fastmcp.server.auth import AccessToken, TokenVerifier
@@ -8,6 +9,7 @@ from sqlalchemy import select
 
 from rememzo.db import SessionFactory
 from rememzo.models import APIKey
+from rememzo.utils import utc_now
 
 
 class RememzoTokenVerifier(TokenVerifier):
@@ -30,9 +32,7 @@ class RememzoTokenVerifier(TokenVerifier):
 async def is_apikey_valid(presented_key: str):
     presented_hash = hashlib.sha256(presented_key.encode()).hexdigest()
     async with SessionFactory() as session:
-        api_key = await session.scalar(
-            select(APIKey).where(APIKey.key_hash == presented_hash)
-        )
+        api_key = await session.scalar(select(APIKey).where(APIKey.key_hash == presented_hash))
         if not api_key or not api_key.is_active:
             return False
         if api_key.expired_at:
@@ -47,9 +47,8 @@ async def is_apikey_valid(presented_key: str):
 async def get_user_id_from_apikey(presented_key: str) -> UUID | None:
     presented_hash = hashlib.sha256(presented_key.encode()).hexdigest()
     async with SessionFactory() as session:
-        return await session.scalar(
-            select(APIKey.user_id).where(APIKey.key_hash == presented_hash)
-        )
+        return await session.scalar(select(APIKey.user_id).where(APIKey.key_hash == presented_hash))
+
 
 def get_authenticated_user_id() -> UUID:
     access_token = get_access_token()

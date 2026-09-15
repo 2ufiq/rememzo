@@ -2,16 +2,10 @@
 # mcp.py only communicate with client. the CRUD operation with db happens here.
 
 
-import hashlib
-from datetime import UTC
 from uuid import UUID
 
-from sqlalchemy import select
-
 from rememzo.db import SessionFactory
-from rememzo.models import APIKey, Memory
-from rememzo.utils import utc_now
-
+from rememzo.models import Memory
 
 
 def serialize_memory(memory: Memory) -> dict:
