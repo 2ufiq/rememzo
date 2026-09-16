@@ -113,9 +113,7 @@ Development is tracked on the
 
 ## Contributing
 
-Rememzo is early, and this is a good time to influence how it grows. Start with an
-[open issue](https://github.com/2ufiq/rememzo/issues), comment before beginning larger work,
-and read the [contribution guide](CONTRIBUTING.md) for setup and pull-request expectations.
+Rememzo is early, and this is a good time to influence how it grows. Start with an [open issue](https://github.com/2ufiqrememzo/issues), comment before beginning larger work, and read the [contribution guide](CONTRIBUTING.md) for setup and pull-request expectations.
 
 ## License
 
