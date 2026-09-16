@@ -8,7 +8,7 @@ Rememzo is a local-first, self-hosted MCP server that lets Codex, Claude Code, C
 - Organize memories by user or project
 - Keep your data locally in SQLite
 - Protect access with user-owned API keys
-- Share project memory across your team and their AI (planned)
+- Share project memory across your team and their AI clients *(planned)*
 
 
 > **Current status:** Early development. Memory and project CRUD are available.
@@ -17,7 +17,7 @@ Rememzo is a local-first, self-hosted MCP server that lets Codex, Claude Code, C
 
 ## Why Rememzo?
 
-AI clients usually keep their memories inside client dir or separate products. Context saved in one client is unavailable when you move to another. Rememzo provides a shared MCP memory layer that you control: **AI clients change; your memory stays.**
+AI clients usually keep memory inside their own local directories or product silos. Context saved in one client is unavailable when you move to another. Rememzo provides a shared MCP memory layer that you control: **AI clients change; your memory stays.**
 
 ## Quick Start
 
@@ -98,7 +98,6 @@ REMEMZO
 │   ├── settings.py # Shared configuration
 │   └── utils.py    # Shared utilities
 ├── scripts         # Local management commands
-├── tests           # Pytest suite
 └── alembic.ini     # Alembic configuration
 ```
 
@@ -111,6 +110,12 @@ Development is tracked on the
 2. Pytest coverage
 3. Compatibility testing and guides for local AI clients
 4. Cross-platform, one-command local installation
+
+## Contributing
+
+Rememzo is early, and this is a good time to influence how it grows. Start with an
+[open issue](https://github.com/2ufiq/rememzo/issues), comment before beginning larger work,
+and read the [contribution guide](CONTRIBUTING.md) for setup and pull-request expectations.
 
 ## License
 
